@@ -38,13 +38,21 @@
 #include <cstring>
 #include <fcntl.h>
 #include <sstream>
-#include <sys/ioctl.h>
 #include <type_traits>
 #include <unistd.h>
 
 #ifdef __linux__
 #include <linux/serial.h>
 #endif
+
+#define termios asmtermios
+#include <asm/termios.h>
+#undef  termios
+#include <termios.h>
+
+extern "C" {
+    extern int ioctl(int d, int request, ...);
+}
 
 namespace LibSerial
 {
@@ -73,6 +81,25 @@ namespace LibSerial
          */
         Implementation(const std::string&   fileName,
                        const BaudRate&      baudRate,
+                       const CharacterSize& characterSize,
+                       const FlowControl&   flowControlType,
+                       const Parity&        parityType,
+                       const StopBits&      stopBits) ;
+
+        /**
+         * @brief Constructor that allows a SerialPort instance to be
+         *        created and opened, initializing the corresponding
+         *        serial port with the specified parameters.
+         * @param fileName The file name of the serial port.
+         * @param baudRate The custom communications baud rate.
+         * @param characterSize The size of the character buffer for
+         *        storing read/write streams.
+         * @param parityType The parity type for the serial port.
+         * @param stopBits The number of stop bits for the serial port.
+         * @param flowControlType The flow control type for the serial port.
+         */
+        Implementation(const std::string&   fileName,
+                       int                  baudRate,
                        const CharacterSize& characterSize,
                        const FlowControl&   flowControlType,
                        const Parity&        parityType,
@@ -163,10 +190,22 @@ namespace LibSerial
         void SetBaudRate(const BaudRate& baudRate) ;
 
         /**
+         * @brief Set the baud rate to customized value
+         * @param baudRate The baud rate to be set for the serial port.
+         */
+        void SetCustomBaudRate(int baudRate);
+
+        /**
          * @brief Gets the current baud rate for the serial port.
          * @return Returns the baud rate.
          */
         BaudRate GetBaudRate() const ;
+
+        /**
+         * @brief Gets the current custom baud rate for the serial port.
+         * @return Returns the custom baud rate.
+         */
+        int GetCustomBaudRate() const ;
 
         /**
          * @brief Sets the character size for the serial port.
@@ -496,6 +535,22 @@ namespace LibSerial
         /* Empty */
     }
 
+    SerialPort::SerialPort(const std::string&   fileName,
+                           int                  baudRate,
+                           const CharacterSize& characterSize,
+                           const FlowControl&   flowControlType,
+                           const Parity&        parityType,
+                           const StopBits&      stopBits)
+        : mImpl(new Implementation(fileName,
+                                   baudRate,
+                                   characterSize,
+                                   flowControlType,
+                                   parityType,
+                                   stopBits))
+    {
+        /* Empty */
+    }
+
     SerialPort::SerialPort(SerialPort&& otherSerialPort) : 
         mImpl(std::move(otherSerialPort.mImpl))
     {
@@ -572,10 +627,22 @@ namespace LibSerial
         mImpl->SetBaudRate(baudRate) ;
     }
 
+    void
+    SerialPort::SetCustomBaudRate(int baudRate)
+    {
+        mImpl->SetCustomBaudRate(baudRate) ;
+    }
+
     BaudRate
     SerialPort::GetBaudRate() const
     {
         return mImpl->GetBaudRate() ;
+    }
+
+    int
+    SerialPort::GetCustomBaudRate() const
+    {
+        return mImpl->GetCustomBaudRate() ;
     }
 
     void
@@ -813,6 +880,22 @@ namespace LibSerial
     {
         this->Open(fileName, std::ios_base::in | std::ios_base::out) ;
         this->SetBaudRate(baudRate) ;
+        this->SetCharacterSize(characterSize) ;
+        this->SetFlowControl(flowControlType) ;
+        this->SetParity(parityType) ;
+        this->SetStopBits(stopBits) ;
+    }
+
+    inline
+    SerialPort::Implementation::Implementation(const std::string&   fileName,
+                                               int                  baudRate,
+                                               const CharacterSize& characterSize,
+                                               const FlowControl&   flowControlType,
+                                               const Parity&        parityType,
+                                               const StopBits&      stopBits)
+    {
+        this->Open(fileName, std::ios_base::in | std::ios_base::out) ;
+        this->SetCustomBaudRate(baudRate) ;
         this->SetCharacterSize(characterSize) ;
         this->SetFlowControl(flowControlType) ;
         this->SetParity(parityType) ;
@@ -1125,6 +1208,43 @@ namespace LibSerial
     }
 
     inline
+    void
+    SerialPort::Implementation::SetCustomBaudRate(int baudRate)
+    {
+        // Throw an exception if the serial port is not open.
+        if (not this->IsOpen())
+        {
+            throw NotOpen(ERR_MSG_PORT_NOT_OPEN) ;
+        }
+
+        struct termios2 tio;
+
+        if (ioctl(this->mFileDescriptor, TCGETS2, &tio) < 0)
+        {
+            throw std::runtime_error(std::strerror(errno)) ;
+        }
+
+        tio.c_cflag &= ~CBAUD;
+	    tio.c_cflag |= BOTHER;
+	    tio.c_ispeed = baudRate;
+	    tio.c_ospeed = baudRate;
+
+        if (ioctl(this->mFileDescriptor, TCSETS2, &tio) < 0)
+        {
+            // If applying the baud rate settings fail, throw an exception.
+            throw std::runtime_error(ERR_MSG_INVALID_BAUD_RATE) ;
+        }
+
+        if (ioctl(this->mFileDescriptor, TCGETS2, &tio) < 0)
+        {
+            throw std::runtime_error(std::strerror(errno)) ;
+        }
+
+        // Set the time interval value (us) required for one byte of data to arrive.
+        mByteArrivalTimeDelta = (BITS_PER_BYTE * MICROSECONDS_PER_SEC) / baudRate ;
+    }
+
+    inline
     BaudRate
     SerialPort::Implementation::GetBaudRate() const
     {
@@ -1158,6 +1278,42 @@ namespace LibSerial
 
         // Obtain the input baud rate from the current settings.
         return BaudRate(input_baud) ;
+    }
+
+    inline
+    int
+    SerialPort::Implementation::GetCustomBaudRate() const
+    {
+        // Throw an exception if the serial port is not open.
+        if (not this->IsOpen())
+        {
+            throw NotOpen(ERR_MSG_PORT_NOT_OPEN) ;
+        }
+
+        // Get the current serial port settings.
+        termios port_settings {} ;
+        std::memset(&port_settings, 0, sizeof(port_settings)) ;
+
+        if (tcgetattr(this->mFileDescriptor,
+                      &port_settings) < 0)
+        {
+            throw std::runtime_error(std::strerror(errno)) ;
+        }
+
+        // Read the input and output baud rates.
+        const auto input_baud = cfgetispeed(&port_settings) ;
+        const auto output_baud = cfgetospeed(&port_settings) ;
+
+        // Make sure that the input and output baud rates are
+        // equal. Otherwise, we do not know which one to return.
+        if (input_baud != output_baud)
+        {
+            throw std::runtime_error(ERR_MSG_INVALID_BAUD_RATE) ;
+            // return BaudRate::BAUD_INVALID ;
+        }
+
+        // Obtain the input baud rate from the current settings.
+        return input_baud ;
     }
 
     inline

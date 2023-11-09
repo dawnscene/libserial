@@ -105,6 +105,28 @@ namespace LibSerial
                               const StopBits&      stopBits        = StopBits::STOP_BITS_DEFAULT) ;
 
         /**
+         * @brief Constructor that allows a SerialStream instance to be
+         *        created and opened, initializing the corresponding
+         *        serial port with the specified parameters.
+         *        Suggested by Witek Adamus (wit3k):
+         *        https://sourceforge.net/tracker/index.php?func=detail&aid=2137885&group_id=9432&atid=359432
+         *
+         * @param fileName The file name of the serial stream.
+         * @param baudRate The custom communications baud rate.
+         * @param characterSize The size of the character buffer for
+         *        storing read/write streams.
+         * @param parityType The parity type for the serial stream.
+         * @param stopBits The number of stop bits for the serial stream.
+         * @param flowControlType The flow control type for the serial stream.
+         */
+        explicit SerialStream(const std::string&   fileName,
+                              int                  baudRate,
+                              const CharacterSize& characterSize   = CharacterSize::CHAR_SIZE_DEFAULT,
+                              const FlowControl&   flowControlType = FlowControl::FLOW_CONTROL_DEFAULT,
+                              const Parity&        parityType      = Parity::PARITY_DEFAULT,
+                              const StopBits&      stopBits        = StopBits::STOP_BITS_DEFAULT) ;
+
+        /**
          * @brief Default Destructor for a SerialStream object
          *        Closes the stream associated with mFileDescriptor, and
          *        also closes the serial port if open.
@@ -189,10 +211,22 @@ namespace LibSerial
         void SetBaudRate(const BaudRate& baudRate) ;
 
         /**
+         * @brief Sets the baud rate for the serial port to the specified value
+         * @param baudRate The custom baud rate to be set for the serial port.
+         */
+        void SetCustomBaudRate(int baudRate) ;
+
+        /**
          * @brief Gets the current baud rate for the serial port.
          * @return Returns the baud rate.
          */
         BaudRate GetBaudRate() ;
+
+        /**
+         * @brief Gets the current custom baud rate for the serial port.
+         * @return Returns the custom baud rate.
+         */
+        int GetCustomBaudRate();
 
         /**
          * @brief Sets the character size for the serial port.

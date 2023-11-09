@@ -81,6 +81,25 @@ namespace LibSerial
                             const StopBits&      stopBits        = StopBits::STOP_BITS_DEFAULT) ;
 
         /**
+         * @brief Constructor that allows a SerialPort instance to be
+         *        created and opened, initializing the corresponding
+         *        serial port with the specified parameters.
+         * @param fileName The file name of the serial port.
+         * @param baudRate The custom communications baud rate.
+         * @param characterSize The size of the character buffer for
+         *        storing read/write streams.
+         * @param parityType The parity type for the serial port.
+         * @param stopBits The number of stop bits for the serial port.
+         * @param flowControlType The flow control type for the serial port.
+         */
+        explicit SerialPort(const std::string&   fileName,
+                            int                  baudRate,
+                            const CharacterSize& characterSize   = CharacterSize::CHAR_SIZE_DEFAULT,
+                            const FlowControl&   flowControlType = FlowControl::FLOW_CONTROL_DEFAULT,
+                            const Parity&        parityType      = Parity::PARITY_DEFAULT,
+                            const StopBits&      stopBits        = StopBits::STOP_BITS_DEFAULT) ;
+
+        /**
          * @brief Default Destructor for a SerialPort object. Closes the
          *        serial port associated with mFileDescriptor if open.
          */
@@ -166,10 +185,22 @@ namespace LibSerial
         void SetBaudRate(const BaudRate& baudRate) ;
 
         /**
+         * @brief Set the baud rate to customized value
+         * @param baudRate The baud rate to be set for the serial port.
+         */
+        void SetCustomBaudRate(int baudRate);
+
+        /**
          * @brief Gets the current baud rate for the serial port.
          * @return Returns the baud rate.
          */
         BaudRate GetBaudRate() const ;
+
+        /**
+         * @brief Gets the current custom baud rate for the serial port.
+         * @return Returns the custom baud rate.
+         */
+        int GetCustomBaudRate() const ;
 
         /**
          * @brief Sets the character size for the serial port.

@@ -78,6 +78,25 @@ namespace LibSerial
                        const StopBits&      stopBits) ;
 
         /**
+         * @brief Constructor that allows a SerialStreamBuf instance to be
+         *        created and opened, initializing the corresponding
+         *        serial port with the specified parameters.
+         * @param fileName The file name of the serial stream.
+         * @param baudRate The custom communications baud rate.
+         * @param characterSize The size of the character buffer for
+         *        storing read/write streams.
+         * @param parityType The parity type for the serial stream.
+         * @param stopBits The number of stop bits for the serial stream.
+         * @param flowControlType The flow control type for the serial stream.
+         */
+        Implementation(const std::string&   fileName,
+                       int                  baudRate,
+                       const CharacterSize& characterSize,
+                       const FlowControl&   flowControlType,
+                       const Parity&        parityType,
+                       const StopBits&      stopBits) ;
+
+        /**
          * @brief Copy construction is disallowed.
          */
         Implementation(const Implementation& otherImplementation) = delete ;
@@ -156,10 +175,22 @@ namespace LibSerial
         void SetBaudRate(const BaudRate& baudRate) ;
 
         /**
+         * @brief Sets the baud rate for the serial port to the specified value
+         * @param baudRate The baud rate to be set for the serial port.
+         */
+        void SetCustomBaudRate(int baudRate) ;
+
+        /**
          * @brief Gets the current baud rate for the serial port.
          * @return Returns the baud rate.
          */
         BaudRate GetBaudRate() const ;
+
+        /**
+         * @brief Gets the current custom baud rate for the serial port.
+         * @return Returns the custom baud rate.
+         */
+        int GetCustomBaudRate() const ;
 
         /**
          * @brief Sets the character size for the serial port.
@@ -401,6 +432,22 @@ namespace LibSerial
         setbuf(nullptr, 0) ;
     }
 
+    SerialStreamBuf::SerialStreamBuf(const std::string&   fileName,
+                                     int                  baudRate,
+                                     const CharacterSize& characterSize,
+                                     const FlowControl&   flowControlType,
+                                     const Parity&        parityType,
+                                     const StopBits&      stopBits)
+        : mImpl(new Implementation(fileName,
+                                   baudRate,
+                                   characterSize,
+                                   flowControlType,
+                                   parityType,
+                                   stopBits))
+    {
+        setbuf(nullptr, 0) ;
+    }
+
     SerialStreamBuf::~SerialStreamBuf() = default ;
 
     void
@@ -465,10 +512,22 @@ namespace LibSerial
         mImpl->SetBaudRate(baudRate) ;
     }
 
+    void
+    SerialStreamBuf::SetCustomBaudRate(int baudRate)
+    {
+        mImpl->SetCustomBaudRate(baudRate) ;
+    }
+
     BaudRate
     SerialStreamBuf::GetBaudRate() const
     {
         return mImpl->GetBaudRate() ;
+    }
+
+    int
+    SerialStreamBuf::GetCustomBaudRate() const
+    {
+        return mImpl->GetCustomBaudRate() ;
     }
 
     void
@@ -672,6 +731,27 @@ namespace LibSerial
     }
 
     inline
+    SerialStreamBuf::Implementation::Implementation(const std::string&   fileName,
+                                                    int                  baudRate,
+                                                    const CharacterSize& characterSize,
+                                                    const FlowControl&   flowControlType,
+                                                    const Parity&        parityType,
+                                                    const StopBits&      stopBits)
+    try : mSerialPort(fileName,
+                      baudRate, 
+                      characterSize,
+                      flowControlType,
+                      parityType,
+                      stopBits)
+    {
+        //  empty
+    }
+    catch (const std::exception& err)
+    {
+        throw OpenFailed(err.what()) ;
+    }
+
+    inline
     SerialStreamBuf::Implementation::~Implementation()
     try 
     {
@@ -781,10 +861,23 @@ namespace LibSerial
     }
 
     inline
+    void
+    SerialStreamBuf::Implementation::SetCustomBaudRate(int baudRate)
+    {
+        mSerialPort.SetCustomBaudRate(baudRate) ;
+    }
+
+    inline
     BaudRate
     SerialStreamBuf::Implementation::GetBaudRate() const
     {
         return mSerialPort.GetBaudRate() ;
+    }
+
+    int
+    SerialStreamBuf::Implementation::GetCustomBaudRate() const
+    {
+        return mSerialPort.GetCustomBaudRate() ;
     }
 
     inline

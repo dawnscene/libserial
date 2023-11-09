@@ -58,6 +58,23 @@ namespace LibSerial
         this->FlushIOBuffers() ;
     }
 
+    SerialStream::SerialStream(const std::string&   fileName,
+                               int                  baudRate,
+                               const CharacterSize& characterSize,
+                               const FlowControl&   flowControlType,
+                               const Parity&        parityType,
+                               const StopBits&      stopBits) : 
+        std::iostream(nullptr)
+    {
+        this->Open(fileName) ;  // NOLINT (fuchsia-default-arguments)
+        this->SetCustomBaudRate(baudRate) ;
+        this->SetCharacterSize(characterSize) ;
+        this->SetFlowControl(flowControlType) ;
+        this->SetParity(parityType) ;
+        this->SetStopBits(stopBits) ;
+        this->FlushIOBuffers() ;
+    }
+
     SerialStream::~SerialStream() 
     try 
     {
@@ -305,6 +322,36 @@ namespace LibSerial
         throw ;
     }
 
+    void 
+    SerialStream::SetCustomBaudRate(int baudRate)
+    try
+    {
+        auto my_buffer = dynamic_cast<SerialStreamBuf *>(this->rdbuf()) ;
+
+        // Make sure that we are dealing with a SerialStreamBuf before
+        // proceeding. This check also makes sure that we have a non-NULL
+        // buffer associated with this stream.
+        if (my_buffer != nullptr) 
+        {
+            // Try to set the baud rate with the corresponding function of
+            // the SerialStreamBuf class.
+            my_buffer->SetCustomBaudRate(baudRate) ;
+        } 
+        else 
+        {
+            // If the dynamic_cast above failed then we either have a NULL
+            // streambuf associated with this stream or we have a buffer
+            // of class other than SerialStreamBuf. In either case, we
+            // have a problem and we should stop all I/O using this stream.
+            setstate(badbit) ;
+        }
+    }
+    catch (const std::exception&)
+    {
+        setstate(std::ios_base::failbit) ;
+        throw ;
+    }
+
     BaudRate
     SerialStream::GetBaudRate()
     try
@@ -327,6 +374,35 @@ namespace LibSerial
         // problem and we should stop all I/O using this stream.
         setstate(badbit) ;
         return BaudRate::BAUD_INVALID;
+    }
+    catch (const std::exception&)
+    {
+        setstate(std::ios_base::failbit) ;
+        throw ;
+    }
+
+    int
+    SerialStream::GetCustomBaudRate()
+    try
+    {
+        auto my_buffer = dynamic_cast<SerialStreamBuf *>(this->rdbuf()) ;
+
+        // Make sure that we are dealing with a SerialStreamBuf before
+        // proceeding. This check also makes sure that we have a non-NULL
+        // buffer associated with this stream.
+        if (my_buffer != nullptr) 
+        {
+            // Try to get the baud rate. If the corresponding function of the
+            // SerialStreamBuf class returns BAUD_INVALID, then we have a
+            // problem and the stream is no longer valid for I/O.
+            return my_buffer->GetCustomBaudRate() ;
+        } 
+        // If the dynamic_cast above failed then we either have a NULL
+        // streambuf associated with this stream or we have a buffer of
+        // class other than SerialStreamBuf. In either case, we have a
+        // problem and we should stop all I/O using this stream.
+        setstate(badbit) ;
+        return 0;
     }
     catch (const std::exception&)
     {
