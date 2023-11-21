@@ -11,6 +11,9 @@
 # build directories
 build
 
+# install directories
+install
+
 # lincense files
 COPYING
 
